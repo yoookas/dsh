@@ -64,7 +64,12 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   echo "dsh     $(dsh --version 2>/dev/null | head -n 1 || echo ok)"
 ' || fail '镜像内置工具检查失败'
 
-start_container() { # $@ = 额外 docker run 参数
+start_container() { # $1 = 阶段名，其余为额外 docker run 参数
+  local phase=$1
+  shift
+  CONTAINER="dsh-ssh-smoke-${phase}-$$"
+  docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+
   if [ -n "${SMOKE_PORT:-}" ]; then
     docker run -d --name "$CONTAINER" \
       -e SSH_ROOT_PASSWORD="$PASSWORD" \
@@ -129,7 +134,7 @@ try_login() { # 返回 0 表示登录成功
 }
 
 log '3/4 SSH 容器：密码登录 / root 身份 / 错误密码'
-start_container -e DSH_APP_ENABLED=false
+start_container ssh -e DSH_APP_ENABLED=false
 build_ssh_opts
 
 log '等待 SSH 端口就绪 ...'
@@ -158,7 +163,7 @@ docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 CONTAINER=""
 
 log '4/4 默认容器：SSH + DSH 能同时起来'
-start_container
+start_container full
 sleep 8
 if container_running; then
   log '默认容器运行正常（SSH + DSH）'
