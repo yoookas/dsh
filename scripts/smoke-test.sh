@@ -87,8 +87,9 @@ container_running() {
 wait_port() { # 最多 90 秒
   local i
   for i in $(seq 1 90); do
+    # 注意：连接在子 shell 里完成，fd 3 随子 shell 退出自动关闭。
+    # 这里绝不能用 `exec 3>&- 2>/dev/null`，那会把整个脚本的 stderr 永久指向 /dev/null。
     if (exec 3<>"/dev/tcp/127.0.0.1/${PORT}") 2>/dev/null; then
-      exec 3>&- 2>/dev/null || true
       return 0
     fi
     if ! container_running; then
