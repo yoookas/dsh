@@ -102,10 +102,11 @@ for file in "${FILES[@]}"; do
   fi
 
   log "上传 ${name}（${size}）..."
+  # 用 --upload-file 流式上传，避免把几百 MB 的镜像包整个读进内存
   HTTP="$(curl -sS --retry 3 --retry-delay 5 -o "$TMP/upload.json" -w '%{http_code}' \
     -X POST "${AUTH[@]}" \
     -H 'Content-Type: application/octet-stream' \
-    --data-binary "@${file}" \
+    --upload-file "$file" \
     "${UPLOAD_URL}?name=$(jq -rn --arg n "$name" '$n|@uri')")"
   if [ "$HTTP" != "201" ]; then
     echo "[release] 上传 ${name} 失败（HTTP $HTTP）：" >&2
