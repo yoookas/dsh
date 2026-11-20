@@ -12,14 +12,18 @@
   },
   "release": {
     "tag": "devtools-0.2.2-rc.5",
-    "url": "https://github.com/yoookas/dsh/releases/tag/devtools-0.2.2-rc.5",
+    "url": "https://github.com/yoookas/dsh-docker/releases/tag/devtools-0.2.2-rc.5",
     "assets": [
       {
         "name": "dsh-devtools-0.2.2-rc.5-linux-amd64.tar.gz",
-        "size": 552066880
+        "size": 552067303
+      },
+      {
+        "name": "dsh-devtools-0.2.2-rc.5-linux-arm64.tar.gz",
+        "size": 541706211
       }
     ],
-    "published_at": "2026-11-20T17:17:10Z"
+    "published_at": "2026-11-20T17:54:51Z"
   },
-  "checked_at": "2026-11-20T17:17:10Z"
+  "checked_at": "2026-11-20T17:54:51Z"
 }
