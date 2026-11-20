@@ -2,5 +2,9 @@
 ignored:
   # apt 包版本跟随基础镜像的 Debian 快照，锁死版本反而会构建失败
   - DL3008
-  # 基础镜像来自第三方仓库，无法固定 digest（每小时的更新检测本身就是按 digest 走的）
+  # 基础镜像 tag 由 build-arg 注入（每小时跟上游版本走），不写死在文件里
+  - DL3006
+  # 同理：base image 用 latest 类 tag 是刻意的（跟版），不是失误
   - DL3007
+  # 必须 root：要装 sshd、设置 root 密码、并在 22 端口监听
+  - DL3002
