@@ -114,6 +114,7 @@ check_contains <(printf '%s' "$OUT") '上传 deepseek-harness-ssh-0.0.1-linux-am
 
 echo '== make-release-notes =='
 NOTES="$(RELEASE_TAG=0.0.1 ASSET_DIR="$TMP/dist" bash "$ROOT/scripts/make-release-notes.sh")"
+# shellcheck disable=SC2016  # 反引号是 markdown，不是命令替换
 if grep -q 'deepseek-harness-ssh `0.0.1`' <<<"$NOTES"; then ok '说明包含版本号'; else bad '说明缺少版本号'; fi
 
 echo

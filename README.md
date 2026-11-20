@@ -1,5 +1,9 @@
 # deepseek-harness-ssh
 
+![Build](https://github.com/yoookas/dsh/actions/workflows/build-ssh-image.yml/badge.svg)
+![Release](https://img.shields.io/github/v/release/yoookas/dsh?include_prereleases&label=release)
+![License](https://img.shields.io/github/license/yoookas/dsh)
+
 在 [`smanx/deepseek-harness`](https://hub.docker.com/r/smanx/deepseek-harness/tags) 之上加装 **OpenSSH Server** 的衍生镜像，
 并且**每小时自动检查上游 `devtools-<版本>` 标签是否有更新**：一有新版本就拉取该镜像 → 重新构建 → 冒烟测试 → 导出成离线镜像文件 → 发布到 GitHub Release。
 

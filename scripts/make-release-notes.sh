@@ -17,7 +17,6 @@ UPSTREAM_REPO="${UPSTREAM_REPO:-smanx/deepseek-harness}"
 UPSTREAM_DIGEST="${UPSTREAM_DIGEST:-unknown}"
 APP_VERSION="${APP_VERSION:-unknown}"
 PLATFORMS="${PLATFORMS:-linux/amd64}"
-REPO="${GITHUB_REPOSITORY:-OWNER/REPO}"
 IMAGE_NAME="${IMAGE_NAME:-deepseek-harness-ssh}"
 ASSET_DIR="${ASSET_DIR:-dist}"
 BUILT_AT="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
@@ -27,6 +26,7 @@ assets_table() {
   shopt -s nullglob
   for f in "$ASSET_DIR"/*.tar.gz; do
     size="$(du -h "$f" | cut -f1)"
+    # shellcheck disable=SC2016  # 这里的反引号是 markdown 语法，不是命令替换
     printf '| `%s` | %s |\n' "$(basename "$f")" "$size"
   done
   shopt -u nullglob
