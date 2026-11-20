@@ -44,7 +44,7 @@ if command -v apt-get >/dev/null 2>&1; then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update
   apt-get install -y --no-install-recommends ca-certificates curl
-  mkdir -p -m 0755 /etc/apt/keyrings
+  install -d -m 0755 /etc/apt/keyrings
   if curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
        -o /etc/apt/keyrings/githubcli-archive-keyring.gpg; then
     chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
