@@ -14,8 +14,8 @@ plus an hourly watcher that rebuilds and publishes it to **GitHub Releases** whe
 
 ```bash
 # -rc builds are published as pre-releases, so pin the exact tag:
-curl -LO https://github.com/yoookas/dsh/releases/download/devtools-0.2.2-rc.5/deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-amd64.tar.gz
-docker load -i deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-amd64.tar.gz
+curl -LO https://github.com/yoookas/dsh-docker/releases/download/devtools-0.2.2-rc.5/deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-arm64.tar.gz   # or -linux-amd64.tar.gz
+docker load -i deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-<arch>.tar.gz
 
 docker run -d --name dsh-ssh \
   -p 3080:3080 -p 2222:22 \

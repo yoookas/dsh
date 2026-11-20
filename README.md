@@ -1,8 +1,8 @@
 # deepseek-harness-ssh
 
-![Build](https://github.com/yoookas/dsh/actions/workflows/build-ssh-image.yml/badge.svg)
-![Release](https://img.shields.io/github/v/release/yoookas/dsh?include_prereleases&label=release)
-![License](https://img.shields.io/github/license/yoookas/dsh)
+![Build](https://github.com/yoookas/dsh-docker/actions/workflows/build-ssh-image.yml/badge.svg)
+![Release](https://img.shields.io/github/v/release/yoookas/dsh-docker?include_prereleases&label=release)
+![License](https://img.shields.io/github/license/yoookas/dsh-docker)
 
 在 [`smanx/deepseek-harness`](https://hub.docker.com/r/smanx/deepseek-harness/tags) 之上加装 **OpenSSH Server** 的衍生镜像，
 并且**每小时自动检查上游 `devtools-<版本>` 标签是否有更新**：一有新版本就拉取该镜像 → 重新构建 → 冒烟测试 → 导出成离线镜像文件 → 发布到 GitHub Release。
@@ -38,11 +38,11 @@
 ```bash
 # 1. 到 Releases 页面下载对应架构的镜像包（Release tag 与上游一致）
 #    -rc / -beta 版本会被标记为 pre-release，所以链接里用具体 tag：
-curl -LO https://github.com/yoookas/dsh/releases/download/devtools-0.2.2-rc.5/deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-amd64.tar.gz
+curl -LO https://github.com/yoookas/dsh-docker/releases/download/devtools-0.2.2-rc.5/deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-arm64.tar.gz   # 或 -linux-amd64.tar.gz
 # 上游发布正式版后，也可以用 .../releases/latest/download/<文件名>
 
 # 2. 加载镜像（docker load 直接支持 .tar.gz）
-docker load -i deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-amd64.tar.gz
+docker load -i deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-<arch>.tar.gz
 
 # 3. 启动
 docker run -d --name dsh-ssh \
@@ -228,7 +228,7 @@ docker run --rm -it -e SSH_ROOT_PASSWORD=x deepseek-harness-ssh:devtools-0.2.2-r
 | `UPSTREAM_TRACK` | `version` | `version`＝跟 `devtools-<最高版本>`；`tag`＝跟固定 tag |
 | `UPSTREAM_TAG_PREFIX` | `devtools` | 版本模式的 tag 前缀；设为 `none` 则跟踪纯版本号 `0.2.2-rc.5` |
 | `UPSTREAM_TAG` | `devtools-latest` | `UPSTREAM_TRACK=tag` 时要跟踪的固定 tag |
-| `PLATFORMS` | `linux/amd64` | 设为 `linux/amd64,linux/arm64` 可同时产出 arm64 包（走 QEMU，构建更慢） |
+| `PLATFORMS` | `linux/amd64` | 本仓库当前为 `linux/amd64,linux/arm64`（arm64 走 QEMU，构建更慢） |
 
 ### Secrets（可选）
 
@@ -317,8 +317,9 @@ ssh -p 2222 root@127.0.0.1
 A：`devtools` 变体预装了 git / vim / htop / python3 / build-essential / pnpm / uv 等工具，配 SSH 才是「能进去干活」的形态；
 如果更想要精简版，把仓库变量 `UPSTREAM_TAG_PREFIX` 改成 `devtools-min`（或 `none` 以跟踪 `0.2.2-rc.5` 这类纯版本 tag）即可。
 
-**Q：为什么 Releases 里有两个文件？**
-A：`linux-amd64` 与 `linux-arm64`。默认只构建 amd64；把仓库变量 `PLATFORMS` 设为 `linux/amd64,linux/arm64` 才会同时产出 arm64。
+**Q：Releases 里为什么有两个文件？**
+A：`linux-amd64` 与 `linux-arm64`。本仓库的 `PLATFORMS` 变量已设为 `linux/amd64,linux/arm64`，
+每次发版都同时产出两个架构；只想要 amd64 就把该变量改回 `linux/amd64`，构建会快不少。
 
 **Q：多久检查一次？可以改吗？**
 A：默认每小时第 7 分钟（`.github/workflows/build-ssh-image.yml` 里的 `cron: "7 * * * *"`）。
