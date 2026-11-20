@@ -104,9 +104,12 @@ wait_port() { # 最多 90 秒
   return 1
 }
 
-SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-          -o ConnectTimeout=10 -o PreferredAuthentications=password
-          -o PubkeyAuthentication=no -p "$PORT")
+# 注意：必须在拿到 PORT 之后才能拼参数，否则 -p 会是个空串（Bad port ''）
+build_ssh_opts() {
+  SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+            -o ConnectTimeout=10 -o PreferredAuthentications=password
+            -o PubkeyAuthentication=no -p "$PORT")
+}
 
 try_login() { # 返回 0 表示登录成功
   local i out rc
@@ -127,6 +130,7 @@ try_login() { # 返回 0 表示登录成功
 
 log '3/4 SSH 容器：密码登录 / root 身份 / 错误密码'
 start_container -e DSH_APP_ENABLED=false
+build_ssh_opts
 
 log '等待 SSH 端口就绪 ...'
 wait_port || fail "SSH 端口 ${PORT} 未在 90 秒内就绪或容器已退出"
