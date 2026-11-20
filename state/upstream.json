@@ -3,18 +3,23 @@
   "description": "由 CI 自动维护：记录最近一次成功发布对应的上游指纹",
   "upstream": {
     "repository": "smanx/deepseek-harness",
-    "tag": "",
+    "tag": "devtools-0.2.2-rc.5",
     "mode": "version",
-    "digest": "",
-    "fingerprint": "",
-    "last_updated": "",
-    "app_version": ""
+    "digest": "sha256:6de2aabbd27886f7602b9e4e34cd180cb26d4a68e6f2c7b5e6797a83b9507a50",
+    "fingerprint": "f45dc2fc2d0a10fce34a0fc1cfa8c0e30f68390f088058854a3882da4bd28b57",
+    "last_updated": "2026-11-20T00:42:56.69236Z",
+    "app_version": "0.2.2-rc.5"
   },
   "release": {
-    "tag": "",
-    "url": "",
-    "assets": [],
-    "published_at": ""
+    "tag": "devtools-0.2.2-rc.5",
+    "url": "https://github.com/yoookas/dsh/releases/tag/devtools-0.2.2-rc.5",
+    "assets": [
+      {
+        "name": "deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-amd64.tar.gz",
+        "size": 552064924
+      }
+    ],
+    "published_at": "2026-11-20T17:12:04Z"
   },
-  "checked_at": ""
+  "checked_at": "2026-11-20T17:12:04Z"
 }
