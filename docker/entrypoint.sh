@@ -142,7 +142,10 @@ start_ssh() {
     die "SSH_PORT 超出范围：$ssh_port"
   fi
 
-  command -v sshd >/dev/null 2>&1 || die '镜像内未找到 sshd，请检查构建是否成功'
+  # 必须用绝对路径：sshd 连接时会 re-exec 自己，相对命令名会报
+  # "sshd re-exec requires execution with an absolute path" 并直接退出
+  sshd_bin="$(command -v sshd 2>/dev/null || true)"
+  [ -n "$sshd_bin" ] && [ -x "$sshd_bin" ] || die '镜像内未找到 sshd，请检查构建是否成功'
 
   mkdir -p /run/sshd
   chmod 0755 /run/sshd 2>/dev/null || true
@@ -215,14 +218,14 @@ start_ssh() {
 
   write_sshd_config
 
-  sshd -t || die 'sshd 配置校验失败，容器终止'
+  "$sshd_bin" -t || die 'sshd 配置校验失败，容器终止'
 
   log "OpenSSH 版本：$(ssh -V 2>&1 | head -n 1 || echo unknown)"
   log "启动 sshd：${ssh_listen_address}:${ssh_port}（PermitRootLogin=${permit_root_login}，PasswordAuthentication=${password_authentication}）"
 
   # 用 -D 前台方式启动再由 shell 放到后台，sshd 的日志能直接进容器日志，
   # 也便于检测「启动后立刻退出」；daemon 模式会把错误吞进 syslog。
-  sshd -D -e &
+  "$sshd_bin" -D -e &
   sshd_pid=$!
   sleep 1
   if ! kill -0 "$sshd_pid" 2>/dev/null; then
