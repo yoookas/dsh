@@ -217,11 +217,23 @@ start_ssh() {
 
   sshd -t || die 'sshd 配置校验失败，容器终止'
 
+  log "OpenSSH 版本：$(ssh -V 2>&1 | head -n 1 || echo unknown)"
   log "启动 sshd：${ssh_listen_address}:${ssh_port}（PermitRootLogin=${permit_root_login}，PasswordAuthentication=${password_authentication}）"
-  sshd || die 'sshd 启动失败'
+
+  # 用 -D 前台方式启动再由 shell 放到后台，sshd 的日志能直接进容器日志，
+  # 也便于检测「启动后立刻退出」；daemon 模式会把错误吞进 syslog。
+  sshd -D -e &
+  sshd_pid=$!
+  sleep 1
+  if ! kill -0 "$sshd_pid" 2>/dev/null; then
+    wait "$sshd_pid" 2>/dev/null || true
+    die 'sshd 启动后立即退出（日志见上）'
+  fi
+  log "sshd 已启动（pid ${sshd_pid}），等待端口就绪 ..."
 
   if ! wait_for_port "$ssh_port"; then
-    die "sshd 未能在 ${ssh_port} 端口监听，请检查端口冲突或 sshd 日志"
+    kill "$sshd_pid" 2>/dev/null || true
+    die "sshd 未能在 ${ssh_port} 端口监听，请检查端口冲突或上方 sshd 日志"
   fi
   log 'sshd 已就绪'
 }

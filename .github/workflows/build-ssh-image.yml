@@ -225,8 +225,10 @@ jobs:
           ls -lh dist
 
       - name: 冒烟测试（amd64）
+        id: smoke
         env:
           RELEASE_TAG: ${{ steps.plan.outputs.release_tag }}
+          SMOKE_KEEP: "1"
         run: |
           set -euo pipefail
           if [ -f dist/image-amd64.tar ]; then
@@ -235,6 +237,18 @@ jobs:
           else
             echo "本次未构建 amd64，跳过冒烟测试"
           fi
+
+      - name: 冒烟失败时转储容器日志
+        if: failure()
+        run: |
+          set +e
+          docker ps -a
+          for c in $(docker ps -aq --filter 'name=dsh-ssh-smoke'); do
+            echo "===== docker inspect $c ====="
+            docker inspect -f 'image={{.Config.Image}} status={{.State.Status}} exit={{.State.ExitCode}}' "$c"
+            echo "===== docker logs $c ====="
+            docker logs "$c" 2>&1 | tail -n 120
+          done
 
       - name: 打包为 tar.gz 并生成校验和
         env:

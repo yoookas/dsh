@@ -26,13 +26,18 @@ dump_container() {
   docker logs --tail 80 "$CONTAINER" >&2 2>&1 || true
 }
 
-cleanup() {
-  if [ "$FAILED" = '1' ]; then
+on_exit() {
+  local rc=$?
+  printf '[smoke] EXIT rc=%s\n' "$rc" >&2
+  if [ "$FAILED" = '1' ] || [ "$rc" -ne 0 ]; then
     dump_container
   fi
-  docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  # SMOKE_KEEP=1 时保留容器，便于在后续步骤继续抓日志
+  if [ "${SMOKE_KEEP:-0}" != '1' ]; then
+    docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  fi
 }
-trap cleanup EXIT
+trap on_exit EXIT
 
 fail() {
   FAILED=1
@@ -87,7 +92,11 @@ wait_port() { # 最多 90 秒
       return 0
     fi
     if ! container_running; then
+      printf '[smoke]   第 %d 秒：容器已退出\n' "$i" >&2
       return 1
+    fi
+    if [ $((i % 5)) -eq 0 ]; then
+      printf '[smoke]   等待中 %d/90 ...\n' "$i" >&2
     fi
     sleep 1
   done
