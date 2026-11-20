@@ -36,9 +36,10 @@
 ## 快速开始
 
 ```bash
-# 1. 到本仓库的 Releases 页面下载对应架构的镜像包，例如：
-#    deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-amd64.tar.gz
-curl -LO https://github.com/<OWNER>/<REPO>/releases/latest/download/deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-amd64.tar.gz
+# 1. 到 Releases 页面下载对应架构的镜像包（Release tag 与上游一致）
+#    -rc / -beta 版本会被标记为 pre-release，所以链接里用具体 tag：
+curl -LO https://github.com/yoookas/dsh/releases/download/devtools-0.2.2-rc.5/deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-amd64.tar.gz
+# 上游发布正式版后，也可以用 .../releases/latest/download/<文件名>
 
 # 2. 加载镜像（docker load 直接支持 .tar.gz）
 docker load -i deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-amd64.tar.gz

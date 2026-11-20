@@ -13,7 +13,8 @@ plus an hourly watcher that rebuilds and publishes it to **GitHub Releases** whe
 ## Quick start
 
 ```bash
-curl -LO https://github.com/<OWNER>/<REPO>/releases/latest/download/deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-amd64.tar.gz
+# -rc builds are published as pre-releases, so pin the exact tag:
+curl -LO https://github.com/yoookas/dsh/releases/download/devtools-0.2.2-rc.5/deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-amd64.tar.gz
 docker load -i deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-amd64.tar.gz
 
 docker run -d --name dsh-ssh \
