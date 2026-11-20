@@ -100,6 +100,14 @@ UPLOAD_URL="$(jq -r '.upload_url' "$TMP/release.json" | sed 's/{.*}//')"
 
 log "Release id=${RELEASE_ID}"
 
+# 已存在的 Release 也要更新标题/说明（改名或改文案后重新发布会用到）
+HTTP="$(curl -sS -o /dev/null -w '%{http_code}' -X PATCH "${AUTH[@]}" \
+  -H 'Content-Type: application/json' \
+  --data "$(jq -n --arg name "$RELEASE_NAME" --argjson body "$BODY_JSON" \
+    '{name:$name, body:$body}')" \
+  "${API}/releases/${RELEASE_ID}")"
+[ "$HTTP" = "200" ] || log "警告：更新 Release 说明失败（HTTP ${HTTP}）"
+
 # ── 2. 上传附件 ────────────────────────────────────────────────────────
 shopt -s nullglob
 FILES=("$ASSET_DIR"/*.tar.gz "$ASSET_DIR"/SHA256SUMS.txt)
