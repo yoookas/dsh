@@ -109,7 +109,7 @@ jobs:
           platforms: linux/amd64
           load: true
           push: false
-          tags: dsh-ssh:ci
+          tags: dsh:ci
           build-args: |
             BASE_IMAGE=smanx/deepseek-harness:devtools-latest
             SOURCE_URL=https://github.com/${{ github.repository }}
@@ -118,26 +118,26 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: 镜像大小
-        run: docker image ls dsh-ssh:ci
+        run: docker image ls dsh:ci
 
       - name: 导出镜像包（与 Release 附件同一套流程）
         run: |
           set -euo pipefail
           mkdir -p dist
-          docker save dsh-ssh:ci | gzip -9 > dist/deepseek-harness-ssh-ci-linux-amd64.tar.gz
+          docker save dsh:ci | gzip -9 > dist/dsh-ci-linux-amd64.tar.gz
           sha256sum dist/*.tar.gz > dist/SHA256SUMS.txt
           ls -lh dist
 
       - name: 校验镜像包能被 docker load 还原
         run: |
           set -euo pipefail
-          docker image rm dsh-ssh:ci
-          docker load -i dist/deepseek-harness-ssh-ci-linux-amd64.tar.gz
-          docker image inspect dsh-ssh:ci >/dev/null
+          docker image rm dsh:ci
+          docker load -i dist/dsh-ci-linux-amd64.tar.gz
+          docker image inspect dsh:ci >/dev/null
           echo "docker load 还原成功"
 
       - name: 冒烟测试
-        run: bash scripts/smoke-test.sh dsh-ssh:ci
+        run: bash scripts/smoke-test.sh dsh:ci
 
       - name: 试跑 Release 说明生成
         env:
@@ -156,4 +156,4 @@ jobs:
 
       - name: 失败时输出容器日志
         if: failure()
-        run: docker ps -a; docker logs "$(docker ps -aq --filter name=dsh-ssh-smoke | head -n 1)" 2>&1 | tail -n 60 || true
+        run: docker ps -a; docker logs "$(docker ps -aq --filter name=dsh-smoke | head -n 1)" 2>&1 | tail -n 60 || true

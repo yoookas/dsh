@@ -11,7 +11,7 @@ set -euo pipefail
 
 IMAGE="${1:?用法: smoke-test.sh <image:tag>}"
 PASSWORD="${SMOKE_PASSWORD:-Smoke-Test-Pass-123}"
-CONTAINER="dsh-ssh-smoke-$$"
+CONTAINER="dsh-smoke-$$"
 PORT=""
 FAILED=0
 
@@ -67,7 +67,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
 start_container() { # $1 = 阶段名，其余为额外 docker run 参数
   local phase=$1
   shift
-  CONTAINER="dsh-ssh-smoke-${phase}-$$"
+  CONTAINER="dsh-smoke-${phase}-$$"
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
   if [ -n "${SMOKE_PORT:-}" ]; then

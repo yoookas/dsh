@@ -1,108 +1,80 @@
-# deepseek-harness-ssh
+# dsh
 
-A derived image of [`smanx/deepseek-harness`](https://hub.docker.com/r/smanx/deepseek-harness/tags) with **OpenSSH Server** added,
-plus an hourly watcher that rebuilds and publishes it to **GitHub Releases** whenever upstream ships a new `devtools-<version>` tag.
+![Build](https://github.com/yoookas/dsh-docker/actions/workflows/build-ssh-image.yml/badge.svg)
+![Release](https://img.shields.io/github/v/release/yoookas/dsh-docker?include_prereleases&label=release)
+![License](https://img.shields.io/github/license/yoookas/dsh-docker)
 
-- 🔍 **Hourly upstream check** — compares the upstream manifest digest; exits in seconds when nothing changed.
-- 🐳 **Offline image tarballs** — no registry pushes; artifacts are `*.tar.gz` release assets, load with `docker load`.
-- 🏷️ **Tags mirror upstream** — upstream `devtools-0.2.2-rc.5` ⇒ release `devtools-0.2.2-rc.5`.
-- 🔐 **Password never baked in** — root password comes from `SSH_ROOT_PASSWORD` at container start.
-- 🧰 **Ships `gh`** — GitHub CLI is installed on top of the upstream `devtools` variant.
-- ✅ **Smoke tested** — every build actually starts a container, logs in over SSH, and verifies wrong passwords are rejected.
+A derived image of [`smanx/deepseek-harness`](https://hub.docker.com/r/smanx/deepseek-harness/tags):
+the `devtools-<version>` variant plus **OpenSSH Server** and **gh**, with the root password supplied at runtime.
+
+An hourly job watches upstream, rebuilds on new versions, smoke-tests the result, and publishes `tar.gz` images
+to GitHub Releases (release tags mirror upstream).
 
 ## Quick start
 
 ```bash
-# -rc builds are published as pre-releases, so pin the exact tag:
-curl -LO https://github.com/yoookas/dsh-docker/releases/download/devtools-0.2.2-rc.5/deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-arm64.tar.gz   # or -linux-amd64.tar.gz
-docker load -i deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-<arch>.tar.gz
+# 1. download and load (use -linux-arm64 on ARM)
+curl -LO https://github.com/yoookas/dsh-docker/releases/download/devtools-0.2.2-rc.5/dsh-devtools-0.2.2-rc.5-linux-amd64.tar.gz
+docker load -i dsh-devtools-0.2.2-rc.5-linux-amd64.tar.gz
 
-docker run -d --name dsh-ssh \
+# 2. run
+docker run -d --name dsh \
   -p 3080:3080 -p 2222:22 \
   -e SSH_ROOT_PASSWORD='change-me' \
   -v dsh-data:/root/.dsh \
-  deepseek-harness-ssh:devtools-0.2.2-rc.5
+  dsh:devtools-0.2.2-rc.5
 
-# Web : http://127.0.0.1:3080/
-# SSH : ssh -p 2222 root@127.0.0.1
+# 3. use
+#   Web: http://127.0.0.1:3080/
+#   SSH: ssh -p 2222 root@127.0.0.1
 ```
 
-A Compose example lives in [`examples/docker-compose.yml`](examples/docker-compose.yml).
-
-## How it works
-
-1. `scripts/upstream-fingerprint.sh` asks the Docker Hub API for the highest `devtools-<version>` tag
-   (falling back to `docker buildx imagetools inspect`).
-2. The fingerprint is compared with `state/upstream.json`; unchanged ⇒ skip.
-   Failed builds do **not** update state, so they retry on the next run.
-3. `docker/Dockerfile` installs `openssh-server` on top of the upstream image and adds the entrypoint wrapper.
-4. `scripts/smoke-test.sh` starts the image, logs in with the env password, asserts `root`,
-   asserts a wrong password is rejected, and asserts the container is still alive.
-5. `scripts/publish-release.sh` creates/updates the GitHub Release and uploads the assets.
+Compose example: [`examples/docker-compose.yml`](examples/docker-compose.yml).
 
 ## Environment variables
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `SSH_ROOT_PASSWORD` | – | root password, applied at container start |
-| `SSH_ROOT_PASSWORD_FILE` | – | read password from a file (Docker secret) |
+| `SSH_ROOT_PASSWORD` | – | root password, applied at start |
+| `SSH_ROOT_PASSWORD_FILE` | – | read password from a file |
 | `SSH_AUTHORIZED_KEYS` | – | authorized keys for root |
-| `SSH_AUTHORIZED_KEYS_FILE` | – | read keys from a file |
 | `SSH_PORT` | `22` | sshd port inside the container |
-| `SSH_LISTEN_ADDRESS` | `0.0.0.0` | sshd listen address |
-| `SSH_PERMIT_ROOT_LOGIN` | `yes` | sshd `PermitRootLogin` |
-| `SSH_PASSWORD_AUTHENTICATION` | `auto` | `auto` = enabled iff a password is set |
-| `SSH_ENABLED` | `true` | `false` = no sshd at all (upstream behaviour) |
-| `DSH_APP_ENABLED` | `true` | `false` = SSH only, no DSH process |
-| `SSH_HOST_KEY_B64` | – | base64 ed25519 host key for a stable fingerprint |
-| `SSH_AUTO_CD` | – | set to disable `cd /app` after login |
-| `GH_TOKEN` | – | optional token for the bundled `gh` CLI |
+| `SSH_PERMIT_ROOT_LOGIN` | `yes` | e.g. `prohibit-password` |
+| `SSH_ENABLED` | `true` | `false` = no sshd |
+| `DSH_APP_ENABLED` | `true` | `false` = SSH only |
+| `GH_TOKEN` | – | token for the bundled `gh` |
 
-Upstream variables such as `DSH_PORT`, `PROXY_PORT`, `PROXY_USERNAME`, `PROXY_PASSWORD` keep working.
+Upstream variables (`DSH_PORT`, `PROXY_USERNAME`, …) keep working.
 
-## Bundled tools
+## How it works
 
-On top of the upstream `devtools` variant this image adds `openssh-server` and `gh` (GitHub CLI).
-The `devtools` variant already provides git, curl, wget, vim, htop, tmux, jq, python3, build-essential, pnpm and uv.
-
-```bash
-docker run -d -p 2222:22 -p 3080:3080 \
-  -e SSH_ROOT_PASSWORD=pass -e GH_TOKEN=github_pat_xxx \
-  -v dsh-data:/root/.dsh deepseek-harness-ssh:devtools-0.2.2-rc.5
-```
+1. Hourly: pick the highest `devtools-<version>` tag and use its manifest digest as the fingerprint.
+2. Same fingerprint as `state/upstream.json` ⇒ skip; otherwise pull upstream and rebuild (failed builds don't update state).
+3. Build: upstream image + `openssh-server` + `gh`; the entrypoint starts sshd, then execs the upstream command.
+4. Smoke test: real container, real SSH login, asserts `root`, asserts wrong passwords are rejected.
+5. Export `tar.gz` + `SHA256SUMS.txt` → publish a GitHub Release (tag mirrors upstream, `-rc` ⇒ pre-release).
 
 ## Repository configuration
 
-| Kind | Name | Default | Description |
-| --- | --- | --- | --- |
-| Variable | `UPSTREAM_TRACK` | `version` | `version` = newest `devtools-<semver>` tag, `tag` = a fixed tag |
-| Variable | `UPSTREAM_TAG_PREFIX` | `devtools` | prefix for version mode; `none` = plain `0.2.2-rc.5` tags |
-| Variable | `UPSTREAM_TAG` | `devtools-latest` | tag to track when `UPSTREAM_TRACK=tag` |
-| Variable | `PLATFORMS` | `linux/amd64` | e.g. `linux/amd64,linux/arm64` (QEMU, slower) |
-| Secret | `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` | – | optional Docker Hub login to avoid pull limits |
+| Variable | Default | Description |
+| --- | --- | --- |
+| `PLATFORMS` | `linux/amd64,linux/arm64` here | architectures to build |
+| `UPSTREAM_TRACK` | `version` | `version` or a fixed `tag` |
+| `UPSTREAM_TAG_PREFIX` | `devtools` | prefix for version mode, `none` for plain versions |
+| `UPSTREAM_TAG` | `devtools-latest` | used when `UPSTREAM_TRACK=tag` |
 
-Manual run: **Actions → Build SSH image → Run workflow** (`force` = rebuild even if unchanged).
+Manual rebuild: Actions → **Build SSH image** → Run workflow → tick `force`.
 
-## Local build
+## Notes
 
-```bash
-make prepare   # capture upstream ENTRYPOINT/CMD
-make build     # deepseek-harness-ssh:local
-make run       # SSH 2222 / Web 3080, password "devpass"
-make smoke     # real SSH login test
-make lint      # shellcheck + syntax + hadolint
-```
-
-## Security notes
-
-- The image allows **root SSH login**; keep it on a private network.
-- `SSH_ROOT_PASSWORD` is visible via `docker inspect`; prefer keys or `SSH_ROOT_PASSWORD_FILE`.
-- Host keys are generated on first start and are not shipped in the image; pin them with `SSH_HOST_KEY_B64`.
+- Root SSH login is allowed; keep it on a private network. Prefer `SSH_AUTHORIZED_KEYS` + `SSH_PASSWORD_AUTHENTICATION=no`.
+- `SSH_ROOT_PASSWORD` is visible via `docker inspect`; use `SSH_ROOT_PASSWORD_FILE` when that matters.
+- Host keys are generated on first start and are not baked into the image.
 
 ## Credits
 
 - Application: [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)
-- Upstream image build: [smanx/deepseek-harness-docker](https://github.com/smanx/deepseek-harness-docker)
+- Base image: [smanx/deepseek-harness-docker](https://github.com/smanx/deepseek-harness-docker)
 
 ## License
 

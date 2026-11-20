@@ -1,5 +1,5 @@
-# 本地开发用的镜像名，可覆盖：make build IMAGE=dsh-ssh:dev
-IMAGE ?= deepseek-harness-ssh:local
+# 本地开发用的镜像名，可覆盖：make build IMAGE=dsh:dev
+IMAGE ?= dsh:local
 BASE_IMAGE ?= smanx/deepseek-harness:devtools-latest
 PASSWORD ?= devpass
 SSH_PORT ?= 2222
@@ -19,14 +19,14 @@ build: prepare ## 构建镜像
 		-t $(IMAGE) .
 
 run: ## 启动容器（SSH 2222 / Web 3080）
-	docker run --rm -it --name dsh-ssh-dev \
+	docker run --rm -it --name dsh-dev \
 		-p $(SSH_PORT):22 -p 3080:3080 \
 		-e SSH_ROOT_PASSWORD=$(PASSWORD) \
 		-v dsh-data:/root/.dsh \
 		$(IMAGE)
 
 stop: ## 停掉开发容器
-	-docker rm -f dsh-ssh-dev
+	-docker rm -f dsh-dev
 
 smoke: ## 冒烟测试（需要在本地有该镜像）
 	bash scripts/smoke-test.sh $(IMAGE)

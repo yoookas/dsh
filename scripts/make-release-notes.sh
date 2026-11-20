@@ -17,7 +17,7 @@ UPSTREAM_REPO="${UPSTREAM_REPO:-smanx/deepseek-harness}"
 UPSTREAM_DIGEST="${UPSTREAM_DIGEST:-unknown}"
 APP_VERSION="${APP_VERSION:-unknown}"
 PLATFORMS="${PLATFORMS:-linux/amd64}"
-IMAGE_NAME="${IMAGE_NAME:-deepseek-harness-ssh}"
+IMAGE_NAME="${IMAGE_NAME:-dsh}"
 ASSET_DIR="${ASSET_DIR:-dist}"
 BUILT_AT="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
@@ -63,7 +63,7 @@ $(assets_table)
 docker load -i ${IMAGE_NAME}-${RELEASE_TAG}-linux-amd64.tar.gz
 
 # 2. 启动（SSH 的 root 密码由 SSH_ROOT_PASSWORD 指定）
-docker run -d --name dsh-ssh \\
+docker run -d --name dsh \\
   -p 3080:3080 \\
   -p 2222:22 \\
   -e SSH_ROOT_PASSWORD='换成你自己的密码' \\

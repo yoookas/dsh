@@ -12,6 +12,7 @@
 #   RELEASE_BODY_FILE  说明文件路径（可选）
 #   ASSET_DIR          附件目录（上传其中的 *.tar.gz / SHA256SUMS.txt）
 #   PRERELEASE         true/false（可选，默认 false）
+#   PRUNE_ASSETS       1 时删除同一 Release 里本次没有上传的旧附件
 #   DRY_RUN            1 时只打印将执行的操作
 set -euo pipefail
 
@@ -22,6 +23,7 @@ set -euo pipefail
 RELEASE_NAME="${RELEASE_NAME:-$RELEASE_TAG}"
 PRERELEASE="${PRERELEASE:-false}"
 ASSET_DIR="${ASSET_DIR:-dist}"
+PRUNE_ASSETS="${PRUNE_ASSETS:-0}"
 DRY_RUN="${DRY_RUN:-0}"
 
 API="https://api.github.com/repos/${GITHUB_REPOSITORY}"
@@ -42,6 +44,19 @@ if [ "$DRY_RUN" = "1" ]; then
   FILES=("$ASSET_DIR"/*.tar.gz "$ASSET_DIR"/SHA256SUMS.txt)
   shopt -u nullglob
   [ "${#FILES[@]}" -gt 0 ] || { echo '[release] 没有可上传的附件' >&2; exit 1; }
+
+# 清理改名/换架构后遗留在同一个 Release 里的旧附件
+if [ "$PRUNE_ASSETS" = '1' ]; then
+  KEEP="$(for f in "${FILES[@]}"; do basename "$f"; done)"
+  jq -r '.assets[]? | "\(.id) \(.name)"' "$TMP/release.json" 2>/dev/null \
+    | while read -r asset_id asset_name; do
+        [ -n "$asset_id" ] || continue
+        if ! printf '%s\n' "$KEEP" | grep -qx -- "$asset_name"; then
+          log "删除过期附件 ${asset_name}（id=${asset_id}）"
+          curl -sS -o /dev/null -X DELETE "${AUTH[@]}" "${API}/releases/assets/${asset_id}" || true
+        fi
+      done
+fi
   log "DRY_RUN：将创建/更新 Release ${RELEASE_TAG}（prerelease=${PRERELEASE}）"
   for f in "${FILES[@]}"; do
     log "  + 上传 $(basename "$f")（$(du -h "$f" | cut -f1)）"
@@ -91,6 +106,19 @@ FILES=("$ASSET_DIR"/*.tar.gz "$ASSET_DIR"/SHA256SUMS.txt)
 shopt -u nullglob
 
 [ "${#FILES[@]}" -gt 0 ] || { echo '[release] 没有可上传的附件' >&2; exit 1; }
+
+# 清理改名/换架构后遗留在同一个 Release 里的旧附件
+if [ "$PRUNE_ASSETS" = '1' ]; then
+  KEEP="$(for f in "${FILES[@]}"; do basename "$f"; done)"
+  jq -r '.assets[]? | "\(.id) \(.name)"' "$TMP/release.json" 2>/dev/null \
+    | while read -r asset_id asset_name; do
+        [ -n "$asset_id" ] || continue
+        if ! printf '%s\n' "$KEEP" | grep -qx -- "$asset_name"; then
+          log "删除过期附件 ${asset_name}（id=${asset_id}）"
+          curl -sS -o /dev/null -X DELETE "${AUTH[@]}" "${API}/releases/assets/${asset_id}" || true
+        fi
+      done
+fi
 
 for file in "${FILES[@]}"; do
   name="$(basename "$file")"

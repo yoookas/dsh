@@ -36,7 +36,7 @@ CURL_OPTS=(
   --connect-timeout 10 --max-time 40
   --retry 3 --retry-delay 2 --retry-connrefused
   -H 'Accept: application/json'
-  -H 'User-Agent: deepseek-harness-ssh-watcher/1.0'
+  -H 'User-Agent: dsh-watcher/1.0'
 )
 if [ -n "${DOCKERHUB_USER:-}" ] && [ -n "${DOCKERHUB_TOKEN:-}" ]; then
   CURL_OPTS+=(-u "${DOCKERHUB_USER}:${DOCKERHUB_TOKEN}")

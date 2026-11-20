@@ -1,5 +1,5 @@
 #!/bin/sh
-# deepseek-harness-ssh 容器入口
+# dsh 容器入口
 #
 # 职责：
 #   1. 按环境变量配置 root 密码 / 公钥 / 端口，写运行时 sshd 配置；
@@ -106,7 +106,7 @@ write_sshd_config() {
   fi
 
   {
-    printf '# 由 deepseek-harness-ssh 在容器启动时生成，请勿手工修改\n'
+    printf '# 由 dsh 在容器启动时生成，请勿手工修改\n'
     printf 'Port %s\n' "$ssh_port"
     printf 'ListenAddress %s\n' "$ssh_listen_address"
     printf 'PermitRootLogin %s\n' "$permit_root_login"
@@ -124,8 +124,8 @@ write_sshd_config() {
     printf 'ClientAliveInterval 60\n'
     printf 'ClientAliveCountMax 3\n'
     printf 'MaxStartups 100:30:200\n'
-    if [ "$need_subsystem" = "1" ] && [ -s /etc/dsh-ssh-sftp-server ]; then
-      printf 'Subsystem sftp %s\n' "$(cat /etc/dsh-ssh-sftp-server)"
+    if [ "$need_subsystem" = "1" ] && [ -s /etc/dsh-sftp-server ]; then
+      printf 'Subsystem sftp %s\n' "$(cat /etc/dsh-sftp-server)"
     fi
   } > "$conf"
   chmod 0644 "$conf"

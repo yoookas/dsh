@@ -80,7 +80,7 @@ for candidate in $SFTP_CANDIDATES; do
   fi
 done
 if [ -n "$SFTP_SERVER" ]; then
-  printf '%s\n' "$SFTP_SERVER" > /etc/dsh-ssh-sftp-server
+  printf '%s\n' "$SFTP_SERVER" > /etc/dsh-sftp-server
   log "sftp 子系统：$SFTP_SERVER"
 else
   log "警告：未找到 sftp-server，SFTP 功能不可用（SSH shell 仍可正常使用）"
@@ -102,7 +102,7 @@ rm -f /etc/ssh/ssh_host_*_key /etc/ssh/ssh_host_*_key.pub
 
 # ── SSH 登录后自动进入 /app（可用 SSH_AUTO_CD= 关闭）───────────────────
 cat > /etc/profile.d/99-dsh-workdir.sh <<'EOF'
-# 由 deepseek-harness-ssh 镜像提供：SSH 登录后自动 cd 到工作目录
+# 由 dsh 镜像提供：SSH 登录后自动 cd 到工作目录
 if [ -z "${SSH_AUTO_CD:-}" ] && [ -d /app ]; then
   cd /app || true
 fi

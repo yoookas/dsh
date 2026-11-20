@@ -3,14 +3,14 @@
 #
 # 用法：
 #   GITHUB_TOKEN=ghp_xxx bash scripts/create-repo.sh
-#   GITHUB_TOKEN=ghp_xxx REPO_NAME=my-dsh-ssh VISIBILITY=private bash scripts/create-repo.sh
+#   GITHUB_TOKEN=ghp_xxx REPO_NAME=my-dsh VISIBILITY=private bash scripts/create-repo.sh
 #
 # Token 至少需要 repo（经典）或 Contents: Read and write + Workflows: Read and write（细粒度）。
 set -euo pipefail
 
 : "${GITHUB_TOKEN:?请设置 GITHUB_TOKEN 环境变量}"
 
-REPO_NAME="${REPO_NAME:-deepseek-harness-ssh}"
+REPO_NAME="${REPO_NAME:-dsh}"
 VISIBILITY="${VISIBILITY:-public}"
 DESCRIPTION="${DESCRIPTION:-每小时跟踪 smanx/deepseek-harness，自动构建带 OpenSSH 的镜像并发布到 Release}"
 
@@ -87,9 +87,9 @@ git add -A
 if git diff --cached --quiet; then
   log '没有需要提交的改动'
 else
-  git -c user.name="${GIT_AUTHOR_NAME:-dsh-ssh bot}" \
+  git -c user.name="${GIT_AUTHOR_NAME:-dsh bot}" \
       -c user.email="${GIT_AUTHOR_EMAIL:-bot@users.noreply.local}" \
-      commit -q -m "feat: 初始化 deepseek-harness-ssh（每小时跟踪上游并发布 SSH 镜像）"
+      commit -q -m "feat: 初始化 dsh（每小时跟踪上游并发布 SSH 镜像）"
   log '已创建初始提交'
 fi
 

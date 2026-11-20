@@ -105,17 +105,17 @@ check_eq "3" "$?" '不存在的 tag 返回 3'
 
 echo '== publish-release：dry-run 不联网 =='
 mkdir -p "$TMP/dist"
-head -c 64 /dev/urandom > "$TMP/dist/deepseek-harness-ssh-0.0.1-linux-amd64.tar.gz"
+head -c 64 /dev/urandom > "$TMP/dist/dsh-0.0.1-linux-amd64.tar.gz"
 (cd "$TMP/dist" && sha256sum ./*.tar.gz > SHA256SUMS.txt)
 OUT="$(GITHUB_TOKEN=dummy GITHUB_REPOSITORY=owner/repo RELEASE_TAG=0.0.1 \
   ASSET_DIR="$TMP/dist" DRY_RUN=1 bash "$ROOT/scripts/publish-release.sh" 2>&1)"
 check_eq "0" "$?" 'dry-run 退出码为 0'
-check_contains <(printf '%s' "$OUT") '上传 deepseek-harness-ssh-0.0.1-linux-amd64.tar.gz' '列出待上传附件'
+check_contains <(printf '%s' "$OUT") '上传 dsh-0.0.1-linux-amd64.tar.gz' '列出待上传附件'
 
 echo '== make-release-notes =='
 NOTES="$(RELEASE_TAG=0.0.1 ASSET_DIR="$TMP/dist" bash "$ROOT/scripts/make-release-notes.sh")"
 # shellcheck disable=SC2016  # 反引号是 markdown，不是命令替换
-if grep -q 'deepseek-harness-ssh `0.0.1`' <<<"$NOTES"; then ok '说明包含版本号'; else bad '说明缺少版本号'; fi
+if grep -q 'dsh `0.0.1`' <<<"$NOTES"; then ok '说明包含版本号'; else bad '说明缺少版本号'; fi
 
 echo
 printf '通过 %d，失败 %d\n' "$PASS" "$FAIL"

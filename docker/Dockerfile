@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# deepseek-harness-ssh
+# dsh
 # ────────────────────
 # 在官方第三方镜像 smanx/deepseek-harness 之上加装 OpenSSH Server，
 # root 密码由环境变量 SSH_ROOT_PASSWORD 在容器启动时注入（不打进镜像层）。
@@ -15,7 +15,7 @@
 #
 # 本地构建：
 #   bash scripts/gen-launcher.sh smanx/deepseek-harness:devtools-latest docker/upstream-launch.sh
-#   docker build -f docker/Dockerfile -t dsh-ssh:local .
+#   docker build -f docker/Dockerfile -t dsh:local .
 
 ARG BASE_IMAGE=smanx/deepseek-harness:devtools-latest
 
@@ -28,7 +28,7 @@ ARG BUILD_REVISION=dev
 ARG BUILD_DATE=unknown
 ARG UPSTREAM_VERSION=unknown
 
-LABEL org.opencontainers.image.title="deepseek-harness-ssh" \
+LABEL org.opencontainers.image.title="dsh" \
       org.opencontainers.image.description="DeepSeek Harness + OpenSSH Server；root 密码通过环境变量 SSH_ROOT_PASSWORD 注入" \
       org.opencontainers.image.source="${SOURCE_URL}" \
       org.opencontainers.image.base.name="${BASE_IMAGE}" \
@@ -36,7 +36,7 @@ LABEL org.opencontainers.image.title="deepseek-harness-ssh" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.version="${UPSTREAM_VERSION}" \
       org.opencontainers.image.licenses="MIT" \
-      io.github.dsh-ssh.base-image="${BASE_IMAGE}"
+      io.github.dsh.base-image="${BASE_IMAGE}"
 
 # 上游若将来改成非 root，这里强制回到 root，否则装不了包也起不了 sshd
 USER root
@@ -52,11 +52,11 @@ RUN chmod 0755 /usr/local/bin/dsh-install-gh.sh \
  && /usr/local/bin/dsh-install-gh.sh
 
 # ── 3. 启动脚本 / 健康检查 / 上游入口桥接 ──────────────────────────────
-COPY docker/entrypoint.sh /usr/local/bin/dsh-ssh-entrypoint.sh
-COPY docker/healthcheck.sh /usr/local/bin/dsh-ssh-healthcheck.sh
+COPY docker/entrypoint.sh /usr/local/bin/dsh-entrypoint.sh
+COPY docker/healthcheck.sh /usr/local/bin/dsh-healthcheck.sh
 COPY docker/upstream-launch.sh /usr/local/bin/dsh-upstream-launch.sh
-RUN chmod 0755 /usr/local/bin/dsh-ssh-entrypoint.sh \
-                /usr/local/bin/dsh-ssh-healthcheck.sh \
+RUN chmod 0755 /usr/local/bin/dsh-entrypoint.sh \
+                /usr/local/bin/dsh-healthcheck.sh \
                 /usr/local/bin/dsh-upstream-launch.sh
 
 # ── 4. 运行参数默认值（均可在 docker run -e 覆盖）──────────────────────
@@ -74,8 +74,8 @@ EXPOSE 22
 WORKDIR /app
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD ["/usr/local/bin/dsh-ssh-healthcheck.sh"]
+  CMD ["/usr/local/bin/dsh-healthcheck.sh"]
 
 # 注意：设置 ENTRYPOINT 会重置继承来的 CMD，因此上游的启动命令
 # 由 /usr/local/bin/dsh-upstream-launch.sh 在构建期捕获并保存（见 scripts/gen-launcher.sh）。
-ENTRYPOINT ["/usr/local/bin/dsh-ssh-entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/dsh-entrypoint.sh"]
