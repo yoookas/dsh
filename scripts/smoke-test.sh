@@ -22,7 +22,9 @@ trap cleanup EXIT
 log "镜像：$IMAGE"
 
 log '1/5 校验 sshd 配置'
-docker run --rm --entrypoint sshd "$IMAGE" -t || fail 'sshd -t 校验失败'
+# 镜像里不保留主机密钥（每个容器首启才生成），所以先造一把再 -t
+docker run --rm --entrypoint sh "$IMAGE" -c 'ssh-keygen -A >/dev/null 2>&1 && sshd -t' \
+  || fail 'sshd -t 校验失败'
 
 log '2/5 校验镜像内置工具（gh / git / dsh / node）'
 docker run --rm --entrypoint sh "$IMAGE" -c '
