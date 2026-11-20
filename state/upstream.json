@@ -16,10 +16,10 @@
     "assets": [
       {
         "name": "deepseek-harness-ssh-devtools-0.2.2-rc.5-linux-amd64.tar.gz",
-        "size": 552064924
+        "size": 552066880
       }
     ],
-    "published_at": "2026-11-20T17:12:04Z"
+    "published_at": "2026-11-20T17:17:10Z"
   },
-  "checked_at": "2026-11-20T17:12:04Z"
+  "checked_at": "2026-11-20T17:17:10Z"
 }
