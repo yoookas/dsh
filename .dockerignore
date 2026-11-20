@@ -1,0 +1,12 @@
+# 构建上下文只需要 docker/ 下的文件
+.git
+.github
+state
+examples
+*.md
+Makefile
+LICENSE
+.dockerignore
+.gitignore
+.editorconfig
+.hadolint.yaml

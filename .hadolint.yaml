@@ -1,0 +1,6 @@
+# hadolint 配置
+ignored:
+  # apt 包版本跟随基础镜像的 Debian 快照，锁死版本反而会构建失败
+  - DL3008
+  # 基础镜像来自第三方仓库，无法固定 digest（每小时的更新检测本身就是按 digest 走的）
+  - DL3007

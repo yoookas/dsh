@@ -1,0 +1,20 @@
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# 本地环境变量（放密码/令牌，切勿提交）
+.env
+.env.*
+!.env.example
+
+# 本地构建/运行产物
+*.log
+build/
+dist/
+tmp/
+
+# 由 scripts/gen-launcher.sh 在构建期覆盖生成，仓库里保留的是兜底版本
+# （故意不 ignore：没有 docker 的环境也能直接 docker build）

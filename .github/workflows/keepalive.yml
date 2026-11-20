@@ -1,0 +1,33 @@
+name: Keepalive
+
+# GitHub 会在仓库 60 天无活动后自动停用定时工作流。
+# 这个任务每月写一行心跳，保证仓库一直有提交，小时级检测不会悄悄失效。
+on:
+  schedule:
+    - cron: "17 3 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 写心跳
+        run: |
+          set -euo pipefail
+          mkdir -p state
+          date -u +%Y-%m-%dT%H:%M:%SZ > state/heartbeat.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add state/heartbeat.txt
+          if git diff --cached --quiet; then
+            echo "心跳无变化"
+            exit 0
+          fi
+          git commit -m "chore: keepalive $(date -u +%Y-%m) [skip ci]"
+          git push

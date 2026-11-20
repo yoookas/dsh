@@ -1,0 +1,38 @@
+# docker compose 示例
+#
+# 用法：
+#   1. 从 Release 下载镜像包并加载：docker load -i deepseek-harness-ssh-<tag>-linux-amd64.tar.gz
+#   2. 在同目录创建 .env：echo 'SSH_ROOT_PASSWORD=换成你的密码' > .env
+#   3. docker compose up -d
+services:
+  dsh-ssh:
+    # 与 Release tag 保持一致（上游 devtools-<版本>），例如 devtools-0.2.2-rc.5
+    image: deepseek-harness-ssh:devtools-0.2.2-rc.5
+    container_name: dsh-ssh
+    restart: unless-stopped
+    ports:
+      - "3080:3080"   # DSH Web（上游默认对外端口）
+      - "2222:22"     # SSH；宿主机 22 空闲时可直接写 "22:22"
+    environment:
+      # root 密码：只在容器启动时写入，不打进镜像
+      SSH_ROOT_PASSWORD: ${SSH_ROOT_PASSWORD:?请在 .env 里设置 SSH_ROOT_PASSWORD}
+      # 更安全的做法：用公钥登录并关掉密码登录
+      # SSH_AUTHORIZED_KEYS: "ssh-ed25519 AAAAC3Nza... you@laptop"
+      # SSH_PASSWORD_AUTHENTICATION: "no"
+      # SSH_PERMIT_ROOT_LOGIN: "prohibit-password"
+
+      # 可选的 Web Basic Auth（上游代理功能）
+      # PROXY_USERNAME: admin
+      # PROXY_PASSWORD: changeme
+    volumes:
+      # DSH 的会话 / 配置数据
+      - dsh-data:/root/.dsh
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/dsh-ssh-healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  dsh-data:

@@ -1,0 +1,357 @@
+name: Build SSH image
+
+# 每小时检查 smanx/deepseek-harness 的 devtools-<版本> 标签是否有更新：
+#   有新版本 → 拉取该镜像 → 构建「加装 OpenSSH + root 密码注入」的衍生镜像
+#            → 冒烟测试 → 导出成 tar.gz → 发布到 GitHub Release（tag 与上游对齐）
+#   无新版本 → 直接跳过
+on:
+  schedule:
+    # 每小时第 7 分钟；GitHub 定时任务高峰期可能延迟数分钟，属正常现象
+    - cron: "7 * * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "强制重建（忽略上游指纹比对）"
+        type: boolean
+        default: false
+      upstream_tag:
+        description: "临时覆盖上游 tag / 版本号（留空则自动取最高版本）"
+        type: string
+        required: false
+  push:
+    branches: [main]
+    paths:
+      - "docker/**"
+      - "scripts/**"
+      - ".github/workflows/build-ssh-image.yml"
+
+# 同一时间只跑一个，避免两次任务并发往同一个 Release 上传
+concurrency:
+  group: build-ssh-image
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # 创建 Release + 回写 state/upstream.json
+
+env:
+  UPSTREAM_REPO: smanx/deepseek-harness
+  IMAGE_NAME: deepseek-harness-ssh
+
+jobs:
+  detect:
+    name: 检测上游更新
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+      reason: ${{ steps.diff.outputs.reason }}
+      tag: ${{ steps.upstream.outputs.tag }}
+      mode: ${{ steps.upstream.outputs.mode }}
+      digest: ${{ steps.upstream.outputs.digest }}
+      fingerprint: ${{ steps.upstream.outputs.fingerprint }}
+      last_updated: ${{ steps.upstream.outputs.last_updated }}
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 计算上游指纹
+        id: upstream
+        env:
+          UPSTREAM_TAG: ${{ inputs.upstream_tag || vars.UPSTREAM_TAG || 'devtools-latest' }}
+          UPSTREAM_TAG_PREFIX: ${{ vars.UPSTREAM_TAG_PREFIX || 'devtools' }}
+          UPSTREAM_TRACK: ${{ inputs.upstream_tag && 'tag' || vars.UPSTREAM_TRACK || 'version' }}
+          DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          bash scripts/upstream-fingerprint.sh | tee "${RUNNER_TEMP}/upstream.json"
+          jq -r 'to_entries[] | "\(.key)=\(.value|tostring)"' "${RUNNER_TEMP}/upstream.json" \
+            >> "$GITHUB_OUTPUT"
+
+      - name: 与上次构建比对
+        id: diff
+        env:
+          CUR_FINGERPRINT: ${{ steps.upstream.outputs.fingerprint }}
+          FORCE: ${{ inputs.force }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          PREV="$(jq -r '.upstream.fingerprint // ""' state/upstream.json 2>/dev/null || echo '')"
+          echo "上次指纹：${PREV:-<无>}"
+          echo "本次指纹：${CUR_FINGERPRINT}"
+
+          CHANGED=true
+          REASON="上游有新版本"
+          if [ "${FORCE:-false}" = "true" ]; then
+            REASON="手动触发强制重建"
+          elif [ "$EVENT" = "push" ]; then
+            REASON="镜像构建文件变更"
+          elif [ -n "$PREV" ] && [ "$PREV" = "$CUR_FINGERPRINT" ]; then
+            CHANGED=false
+            REASON="上游未变化，跳过构建"
+          fi
+
+          echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+          {
+            echo "### 上游检测"
+            echo ""
+            echo "| 项 | 值 |"
+            echo "| --- | --- |"
+            echo "| 仓库 | \`${UPSTREAM_REPO}\` |"
+            echo "| 上游 tag | \`${{ steps.upstream.outputs.tag }}\` |"
+            echo "| 上游摘要 | \`${{ steps.upstream.outputs.digest }}\` |"
+            echo "| 上游更新时间 | ${{ steps.upstream.outputs.last_updated }} |"
+            echo "| 结论 | ${REASON} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: 构建并发布
+    needs: detect
+    if: needs.detect.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      UPSTREAM_TAG: ${{ needs.detect.outputs.tag }}
+      PLATFORMS: ${{ vars.PLATFORMS || 'linux/amd64' }}
+      HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 安装冒烟测试依赖
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq sshpass
+
+      - name: 设置 QEMU（仅多架构时需要）
+        if: contains(env.PLATFORMS, 'arm64')
+        uses: docker/setup-qemu-action@v3
+
+      - name: 设置 Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登录 Docker Hub（可选，提高拉取限额）
+        if: env.HAS_DOCKERHUB == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 拉取上游镜像
+        run: |
+          set -euo pipefail
+          IMAGE="${UPSTREAM_REPO}:${UPSTREAM_TAG}"
+          ok=false
+          for attempt in 1 2 3; do
+            if docker pull "$IMAGE"; then ok=true; break; fi
+            echo "第 ${attempt} 次拉取失败，10 秒后重试"
+            sleep 10
+          done
+          if [ "$ok" != "true" ]; then
+            echo "::error::拉取上游镜像失败：$IMAGE"
+            exit 1
+          fi
+          docker image inspect "$IMAGE" >/dev/null
+
+      - name: 生成上游启动桥接脚本
+        run: bash scripts/gen-launcher.sh "${UPSTREAM_REPO}:${UPSTREAM_TAG}" docker/upstream-launch.sh
+
+      - name: 读取上游 DSH 版本
+        id: version
+        run: bash scripts/detect-app-version.sh "${UPSTREAM_REPO}:${UPSTREAM_TAG}" | tee -a "$GITHUB_OUTPUT"
+
+      - name: 计算 Release tag（与上游对齐）
+        id: plan
+        env:
+          UPSTREAM_VERSION: ${{ steps.version.outputs.app_version }}
+          UPSTREAM_DIGEST: ${{ needs.detect.outputs.digest }}
+        run: |
+          set -euo pipefail
+          SHORT="$(printf '%s' "$UPSTREAM_DIGEST" | sed 's/^sha256://' | cut -c1-8)"
+
+          # 带版本号的 tag（devtools-0.2.2-rc.5）直接沿用，和上游完全对齐；
+          # devtools-latest 这类会移动的 tag 加短摘要，保证 Release tag 不可变
+          if printf '%s' "$UPSTREAM_TAG" | grep -qE '[0-9]+\.[0-9]+'; then
+            RELEASE_TAG="$UPSTREAM_TAG"
+          else
+            RELEASE_TAG="${UPSTREAM_TAG}-${SHORT}"
+          fi
+
+          PRERELEASE=false
+          case "$RELEASE_TAG" in
+            *-rc*|*-alpha*|*-beta*|*-pre*|*-dev*) PRERELEASE=true ;;
+          esac
+
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "short=$SHORT" >> "$GITHUB_OUTPUT"
+          echo "构建版本：$RELEASE_TAG（prerelease=$PRERELEASE）"
+
+      - name: 构建并导出镜像文件
+        env:
+          RELEASE_TAG: ${{ steps.plan.outputs.release_tag }}
+          APP_VERSION: ${{ steps.version.outputs.app_version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          # gha 缓存只在 token 可用时启用，避免私有 runner / 权限缺失时构建失败
+          CACHE_ARGS=()
+          if [ -n "${ACTIONS_RUNTIME_TOKEN:-}" ]; then
+            CACHE_ARGS=(--cache-from "type=gha,scope=amd64" --cache-to "type=gha,mode=max,scope=amd64")
+          fi
+
+          for platform in ${PLATFORMS//,/ }; do
+            arch="${platform#linux/}"
+            echo "== 构建 ${platform} → dist/image-${arch}.tar"
+            docker buildx build \
+              --platform "$platform" \
+              --file docker/Dockerfile \
+              --tag "${IMAGE_NAME}:${RELEASE_TAG}" \
+              --tag "${IMAGE_NAME}:${RELEASE_TAG}-${arch}" \
+              --build-arg "BASE_IMAGE=${UPSTREAM_REPO}:${UPSTREAM_TAG}" \
+              --build-arg "SOURCE_URL=https://github.com/${GITHUB_REPOSITORY}" \
+              --build-arg "BUILD_REVISION=${GITHUB_SHA}" \
+              --build-arg "BUILD_DATE=${BUILT_AT}" \
+              --build-arg "UPSTREAM_VERSION=${APP_VERSION}" \
+              ${CACHE_ARGS[@]+"${CACHE_ARGS[@]}"} \
+              --output "type=docker,dest=dist/image-${arch}.tar" \
+              .
+          done
+
+          ls -lh dist
+
+      - name: 冒烟测试（amd64）
+        env:
+          RELEASE_TAG: ${{ steps.plan.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [ -f dist/image-amd64.tar ]; then
+            docker load -i dist/image-amd64.tar
+            bash scripts/smoke-test.sh "${IMAGE_NAME}:${RELEASE_TAG}"
+          else
+            echo "本次未构建 amd64，跳过冒烟测试"
+          fi
+
+      - name: 打包为 tar.gz 并生成校验和
+        env:
+          RELEASE_TAG: ${{ steps.plan.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          cd dist
+          for tar in image-*.tar; do
+            [ -e "$tar" ] || continue
+            arch="${tar#image-}"
+            arch="${arch%.tar}"
+            out="${IMAGE_NAME}-${RELEASE_TAG}-linux-${arch}.tar.gz"
+            echo "== 压缩 ${tar} → ${out}"
+            gzip -9 -c "$tar" > "$out"
+            rm -f "$tar"
+          done
+          sha256sum ./*.tar.gz > SHA256SUMS.txt
+          ls -lh
+
+      - name: 生成 Release 说明
+        env:
+          RELEASE_TAG: ${{ steps.plan.outputs.release_tag }}
+          APP_VERSION: ${{ steps.version.outputs.app_version }}
+          UPSTREAM_TAG: ${{ needs.detect.outputs.tag }}
+          UPSTREAM_DIGEST: ${{ needs.detect.outputs.digest }}
+          ASSET_DIR: dist
+        run: bash scripts/make-release-notes.sh > dist/RELEASE_NOTES.md
+
+      - name: 发布到 GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.plan.outputs.release_tag }}
+          RELEASE_NAME: ${{ env.IMAGE_NAME }} ${{ steps.plan.outputs.release_tag }}
+          RELEASE_BODY_FILE: dist/RELEASE_NOTES.md
+          ASSET_DIR: dist
+          PRERELEASE: ${{ steps.plan.outputs.prerelease }}
+        run: bash scripts/publish-release.sh
+
+      - name: 更新状态文件
+        env:
+          RELEASE_TAG: ${{ steps.plan.outputs.release_tag }}
+          APP_VERSION: ${{ steps.version.outputs.app_version }}
+          FINGERPRINT: ${{ needs.detect.outputs.fingerprint }}
+          UPSTREAM_DIGEST: ${{ needs.detect.outputs.digest }}
+          UPSTREAM_MODE: ${{ needs.detect.outputs.mode }}
+          LAST_UPDATED: ${{ needs.detect.outputs.last_updated }}
+        run: |
+          set -euo pipefail
+          BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          ASSETS="$(cd dist && for f in *.tar.gz; do
+            [ -e "$f" ] || continue
+            jq -n --arg n "$f" --argjson s "$(stat -c%s "$f")" '{name:$n, size:$s}'
+          done | jq -s -c .)"
+
+          jq -n \
+            --arg repo "${UPSTREAM_REPO}" \
+            --arg tag "${UPSTREAM_TAG}" \
+            --arg mode "${UPSTREAM_MODE}" \
+            --arg digest "${UPSTREAM_DIGEST}" \
+            --arg fp "${FINGERPRINT}" \
+            --arg updated "${LAST_UPDATED}" \
+            --arg appver "${APP_VERSION}" \
+            --arg rtag "${RELEASE_TAG}" \
+            --arg rurl "https://github.com/${GITHUB_REPOSITORY}/releases/tag/${RELEASE_TAG}" \
+            --argjson assets "${ASSETS}" \
+            --arg builtat "${BUILT_AT}" \
+            '{
+               schema: 2,
+               description: "由 CI 自动维护：记录最近一次成功发布对应的上游指纹",
+               upstream: {
+                 repository: $repo, tag: $tag, mode: $mode, digest: $digest,
+                 fingerprint: $fp, last_updated: $updated, app_version: $appver
+               },
+               release: {
+                 tag: $rtag, url: $rurl, assets: $assets, published_at: $builtat
+               },
+               checked_at: $builtat
+             }' > "${RUNNER_TEMP}/upstream.json"
+          mv "${RUNNER_TEMP}/upstream.json" state/upstream.json
+
+      - name: 提交状态文件
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add state/upstream.json
+          if git diff --cached --quiet; then
+            echo "状态无变化，跳过提交"
+            exit 0
+          fi
+          git commit -m "chore(state): 上游 ${UPSTREAM_TAG} → Release ${{ steps.plan.outputs.release_tag }} [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}" \
+            || { git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}"; }
+
+      - name: 写入任务摘要
+        if: always()
+        run: |
+          {
+            echo "### 构建结果"
+            echo ""
+            echo "| 项 | 值 |"
+            echo "| --- | --- |"
+            echo "| 上游 | \`${UPSTREAM_REPO}:${UPSTREAM_TAG}\` |"
+            echo "| 上游摘要 | \`${{ needs.detect.outputs.digest }}\` |"
+            echo "| DSH 版本 | \`${{ steps.version.outputs.app_version }}\` |"
+            echo "| Release tag | \`${{ steps.plan.outputs.release_tag }}\` |"
+            echo "| 平台 | \`${PLATFORMS}\` |"
+            echo "| 触发原因 | ${{ needs.detect.outputs.reason }} |"
+            echo ""
+            echo "下载：<https://github.com/${GITHUB_REPOSITORY}/releases/tag/${{ steps.plan.outputs.release_tag }}>"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  skip:
+    name: 无更新，跳过
+    needs: detect
+    if: needs.detect.outputs.changed != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 说明
+        run: echo "上游 ${{ needs.detect.outputs.tag }} 未变化（${{ needs.detect.outputs.digest }}），本次不构建、不发布。"
