@@ -4,7 +4,8 @@
 #   2. 内置工具齐全（gh / git / dsh / node / sshd / chpasswd）；
 #   3. 只开 SSH 的容器（DSH_APP_ENABLED=false）：
 #      用 SSH_ROOT_PASSWORD 注入的密码能登录、登录用户是 root、错误密码被拒；
-#   4. 默认容器（SSH + DSH）能起来并保持运行（DSH 依赖外部配置，失败只警告不阻断）。
+#   4. 默认容器（SSH + DSH）能起来并保持运行（DSH 依赖外部配置，失败只警告不阻断）；
+#   5. 空的 /etc/ssh 绑定挂载（模拟 compose 里的 ./ssh）也能自动补齐并登录。
 #
 # 用法：bash scripts/smoke-test.sh <image:tag>   [SMOKE_PORT=2222 可指定端口]
 set -euo pipefail
@@ -36,6 +37,9 @@ on_exit() {
   if [ "${SMOKE_KEEP:-0}" != '1' ]; then
     docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
   fi
+  if [ -n "${EMPTY_SSH:-}" ]; then
+    rm -rf "$EMPTY_SSH"
+  fi
 }
 trap on_exit EXIT
 
@@ -47,12 +51,12 @@ fail() {
 
 log "镜像：$IMAGE"
 
-log '1/4 校验 sshd 配置'
+log '1/5 校验 sshd 配置'
 # 镜像里不保留主机密钥（每个容器首启才生成），所以先造一把再 -t
 docker run --rm --entrypoint sh "$IMAGE" -c 'ssh-keygen -A >/dev/null 2>&1 && sshd -t' \
   || fail 'sshd -t 校验失败'
 
-log '2/4 校验镜像内置工具'
+log '2/5 校验镜像内置工具'
 docker run --rm --entrypoint sh "$IMAGE" -c '
   set -e
   for bin in gh git node dsh ssh sshd ssh-keygen chpasswd; do
@@ -133,7 +137,7 @@ try_login() { # 返回 0 表示登录成功
   return 1
 }
 
-log '3/4 SSH 容器：密码登录 / root 身份 / 错误密码'
+log '3/5 SSH 容器：密码登录 / root 身份 / 错误密码'
 start_container ssh -e DSH_APP_ENABLED=false
 build_ssh_opts
 
@@ -162,7 +166,7 @@ container_running || fail 'SSH 容器已退出'
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 CONTAINER=""
 
-log '4/4 默认容器：SSH + DSH 能同时起来'
+log '4/5 默认容器：SSH + DSH 能同时起来'
 start_container full
 sleep 8
 if container_running; then
@@ -173,5 +177,20 @@ else
 fi
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 CONTAINER=""
+
+log '5/5 空 /etc/ssh 绑定挂载（模拟 compose 的 ./ssh）'
+EMPTY_SSH="$(mktemp -d)"
+start_container bind -e DSH_APP_ENABLED=false -v "${EMPTY_SSH}:/etc/ssh"
+build_ssh_opts
+wait_port || fail "绑定挂载空 /etc/ssh 后 SSH 端口未就绪（默认配置没恢复成功？）"
+if command -v sshpass >/dev/null 2>&1; then
+  OUTPUT="$(try_login)" || fail '绑定挂载空 /etc/ssh 后无法登录'
+  grep -qx 'root' <<<"$OUTPUT" || fail '绑定挂载场景登录用户不是 root'
+  log '空 /etc/ssh 能自动补齐并登录'
+fi
+docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+CONTAINER=""
+rm -rf "$EMPTY_SSH"
+EMPTY_SSH=""
 
 log '全部通过 ✅'
