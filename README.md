@@ -30,6 +30,16 @@ docker run -d --name dsh \
 
 也提供了 compose 示例：[`examples/docker-compose.yml`](examples/docker-compose.yml)。
 
+### 目录挂载
+
+| 宿主机 | 容器内 | 内容 |
+| --- | --- | --- |
+| `./dsh-data` | `/root/.dsh` | 会话 / 配置（上游约定） |
+| `./ssh` | `/etc/ssh` | 主机密钥 + sshd 配置；挂上后重建容器指纹不变 |
+| `./workspaces` | `/workspace` | 工作区，Web UI 里把 `/workspace` 添加为工作区 |
+
+`/etc/ssh` 首次挂载为空时会自动用镜像内置的默认配置补齐（`sshd_config`、`moduli` 等），不需要手动准备。
+
 ## 环境变量
 
 | 变量 | 默认 | 说明 |

@@ -86,6 +86,11 @@ else
   log "警告：未找到 sftp-server，SFTP 功能不可用（SSH shell 仍可正常使用）"
 fi
 
+# ── 备份一份默认 /etc/ssh：运行期若被空的绑定挂载目录盖住，用它恢复 ──────
+mkdir -p /usr/share/dsh-ssh/defaults
+cp -a /etc/ssh/. /usr/share/dsh-ssh/defaults/
+log "已备份默认配置到 /usr/share/dsh-ssh/defaults"
+
 # ── 校验配置（必须在删除主机密钥之前：sshd -t 需要至少一把主机密钥）────
 if [ ! -f /etc/ssh/ssh_host_ed25519_key ]; then
   ssh-keygen -A >/dev/null 2>&1 || true
@@ -99,6 +104,7 @@ rm -f /tmp/sshd-test.log
 
 # ── 删除构建期生成的主机密钥：每个容器首启时重新生成，避免全镜像统一指纹 ──
 rm -f /etc/ssh/ssh_host_*_key /etc/ssh/ssh_host_*_key.pub
+rm -f /usr/share/dsh-ssh/defaults/ssh_host_*_key /usr/share/dsh-ssh/defaults/ssh_host_*_key.pub
 
 # ── SSH 登录后自动进入 /app（可用 SSH_AUTO_CD= 关闭）───────────────────
 cat > /etc/profile.d/99-dsh-workdir.sh <<'EOF'

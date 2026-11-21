@@ -31,6 +31,16 @@ docker run -d --name dsh \
 
 Compose example: [`examples/docker-compose.yml`](examples/docker-compose.yml).
 
+### Mounts
+
+| Host | Container | Purpose |
+| --- | --- | --- |
+| `./dsh-data` | `/root/.dsh` | sessions / config (upstream convention) |
+| `./ssh` | `/etc/ssh` | host keys + sshd config; keeps the fingerprint stable across recreations |
+| `./workspaces` | `/workspace` | workspace; add `/workspace` as a workspace in the Web UI |
+
+An empty `/etc/ssh` bind mount is auto-populated from the image defaults on first start.
+
 ## Environment variables
 
 | Variable | Default | Description |

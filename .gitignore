@@ -18,3 +18,8 @@ tmp/
 
 # 由 scripts/gen-launcher.sh 在构建期覆盖生成，仓库里保留的是兜底版本
 # （故意不 ignore：没有 docker 的环境也能直接 docker build）
+
+# 使用 examples/docker-compose.yml 时在仓库根目录生成的挂载点
+/dsh-data/
+/ssh/
+/workspaces/

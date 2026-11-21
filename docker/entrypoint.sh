@@ -150,6 +150,18 @@ start_ssh() {
   mkdir -p /run/sshd
   chmod 0755 /run/sshd 2>/dev/null || true
 
+  # 绑定挂载 ./ssh:/etc/ssh 时，空宿主目录会盖掉镜像里的 /etc/ssh，
+  # 用构建期备份的默认配置补齐，否则 sshd 会因缺少 sshd_config/moduli 起不来。
+  if [ ! -f /etc/ssh/sshd_config ]; then
+    if [ -d /usr/share/dsh-ssh/defaults ]; then
+      log '/etc/ssh 缺少配置（常见于首次绑定挂载），从镜像默认值恢复'
+      cp -a /usr/share/dsh-ssh/defaults/. /etc/ssh/ \
+        || die '从 /usr/share/dsh-ssh/defaults 恢复 /etc/ssh 失败'
+    else
+      die '/etc/ssh 缺少 sshd_config，且镜像内没有默认配置备份'
+    fi
+  fi
+
   # 主配置若缺少 Include，运行期补一次（防止用户挂载了自定义 sshd_config）
   if [ -f /etc/ssh/sshd_config ] \
      && ! grep -qE '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config\.d/' /etc/ssh/sshd_config; then
