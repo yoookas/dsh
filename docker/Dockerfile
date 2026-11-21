@@ -59,7 +59,17 @@ RUN chmod 0755 /usr/local/bin/dsh-entrypoint.sh \
                 /usr/local/bin/dsh-healthcheck.sh \
                 /usr/local/bin/dsh-upstream-launch.sh
 
-# ── 4. 运行参数默认值（均可在 docker run -e 覆盖）──────────────────────
+# ── 4. 清理构建期残留（apt 缓存 / 文档 / man）──────────────────────────
+# 这些文件运行期用不到，但会让镜像白白大几十 MB
+RUN rm -rf /var/lib/apt/lists/* \
+           /var/cache/apt/archives/*.deb \
+           /var/cache/debconf/*.dat-old \
+           /usr/share/doc/* \
+           /usr/share/man/* \
+           /tmp/* \
+           /var/tmp/* 2>/dev/null || true
+
+# ── 5. 运行参数默认值（均可在 docker run -e 覆盖）──────────────────────
 ENV SSH_ENABLED=true \
     SSH_PORT=22 \
     SSH_LISTEN_ADDRESS=0.0.0.0 \

@@ -18,11 +18,14 @@ fi
 if command -v apt-get >/dev/null 2>&1; then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update
-  apt-get install -y --no-install-recommends \
-    openssh-server \
-    openssh-sftp-server \
-    openssh-client
-  rm -rf /var/lib/apt/lists/*
+  # 上游 devtools 变体已经带 openssh-client，有就不重复装
+  set -- openssh-server openssh-sftp-server
+  if ! command -v ssh >/dev/null 2>&1; then
+    set -- "$@" openssh-client
+  fi
+  apt-get install -y --no-install-recommends "$@"
+  apt-get clean
+  rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb
   SFTP_CANDIDATES="/usr/lib/openssh/sftp-server /usr/libexec/openssh/sftp-server /usr/lib/ssh/sftp-server"
 elif command -v apk >/dev/null 2>&1; then
   apk add --no-cache openssh-server openssh-client

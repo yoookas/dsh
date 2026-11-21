@@ -224,6 +224,26 @@ jobs:
 
           ls -lh dist
 
+      - name: 镜像体积报表
+        env:
+          RELEASE_TAG: ${{ steps.plan.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [ ! -f dist/image-amd64.tar ]; then
+            echo '本次只构建了 arm64，跳过体积报表'
+            exit 0
+          fi
+          docker load -i dist/image-amd64.tar >/dev/null
+          BASE_IMAGE="${UPSTREAM_REPO}:${UPSTREAM_TAG}"
+          BASE_SIZE="$(docker image inspect "$BASE_IMAGE" --format '{{.Size}}' 2>/dev/null || echo 0)"
+          OUR_SIZE="$(docker image inspect "${IMAGE_NAME}:${RELEASE_TAG}" --format '{{.Size}}')"
+          echo "上游镜像 ${BASE_IMAGE}: $((BASE_SIZE/1024/1024)) MB"
+          echo "本镜像 ${IMAGE_NAME}:${RELEASE_TAG}: $((OUR_SIZE/1024/1024)) MB"
+          echo "本镜像增量: $((( OUR_SIZE - BASE_SIZE )/1024/1024 )) MB"
+          echo '--- 本镜像最大的 15 层 ---'
+          docker history --human --format '{{.Size}}	{{.CreatedBy}}' "${IMAGE_NAME}:${RELEASE_TAG}" \
+            | head -n 15
+
       - name: 冒烟测试（amd64）
         id: smoke
         env:
