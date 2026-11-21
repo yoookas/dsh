@@ -75,6 +75,14 @@ Upstream variables (`DSH_PORT`, `PROXY_USERNAME`, …) keep working.
 
 Manual rebuild: Actions → **Build SSH image** → Run workflow → tick `force`.
 
+## Image size
+
+About **530 MB**: the upstream devtools variant is 514 MB and this image adds ~15 MB
+(`gh` 42 MB + `openssh-server` 5.8 MB, minus docs/man/apt caches removed in the final layer).
+
+The release `.tar.gz` is a *second* copy on disk (527 MB; the content is already compressed, so gzip barely helps) —
+delete it after `docker load`. Re-importing a newer build leaves the previous image dangling, so `docker image prune -f` occasionally.
+
 ## Notes
 
 - Root SSH login is allowed; keep it on a private network. Prefer `SSH_AUTHORIZED_KEYS` + `SSH_PASSWORD_AUTHENTICATION=no`.
