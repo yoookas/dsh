@@ -78,7 +78,10 @@ Manual rebuild: Actions → **Build SSH image** → Run workflow → tick `force
 ## Image size
 
 About **530 MB**: the upstream devtools variant is 514 MB and this image adds ~15 MB
-(`gh` 42 MB + `openssh-server` 5.8 MB, minus docs/man/apt caches removed in the final layer).
+(mostly the `gh` 42 MB and `openssh-server` 5.8 MB layers).
+
+Note that `rm`-ing files in a later layer does **not** shrink the image (the data stays in lower layers),
+so the exported tar stays ~531 MB.
 
 The release `.tar.gz` is a *second* copy on disk (527 MB; the content is already compressed, so gzip barely helps) —
 delete it after `docker load`. Re-importing a newer build leaves the previous image dangling, so `docker image prune -f` occasionally.

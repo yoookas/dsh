@@ -76,7 +76,9 @@ docker run -d --name dsh \
 
 ## 镜像体积
 
-镜像约 **530 MB**，其中上游 devtools 变体 514 MB，本镜像只多约 15 MB（`gh` 42 MB + `openssh-server` 5.8 MB，减去清掉的文档/man/apt 缓存）。
+镜像约 **530 MB**，其中上游 devtools 变体 514 MB，本镜像只多约 15 MB（主要是 `gh` 42 MB 与 `openssh-server` 5.8 MB 两层）。
+
+注意：在后面的层里 `rm` 文件**不会**让镜像变小（数据仍留在下层），所以清理只影响容器内可见文件，tar 包大小基本不变（531 MB）。
 
 Release 里的 `.tar.gz` 是**另一份拷贝**（527 MB，内容已压缩，gzip 几乎压不动）——`docker load` 完就可以删掉；重复导入新版本时，旧的同名镜像会变成 `<none>` 悬空镜像，记得 `docker image prune -f`。
 
