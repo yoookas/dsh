@@ -37,9 +37,6 @@ on_exit() {
   if [ "${SMOKE_KEEP:-0}" != '1' ]; then
     docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
   fi
-  if [ -n "${EMPTY_SSH:-}" ]; then
-    rm -rf "$EMPTY_SSH"
-  fi
 }
 trap on_exit EXIT
 
@@ -178,19 +175,16 @@ fi
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 CONTAINER=""
 
-log '5/5 空 /etc/ssh 绑定挂载（模拟 compose 的 ./ssh）'
-EMPTY_SSH="$(mktemp -d)"
-start_container bind -e DSH_APP_ENABLED=false -v "${EMPTY_SSH}:/etc/ssh"
+log '5/5 空 /etc/ssh（模拟 compose 首次挂载 ./ssh）'
+start_container bind -e DSH_APP_ENABLED=false --tmpfs /etc/ssh
 build_ssh_opts
 wait_port || fail "绑定挂载空 /etc/ssh 后 SSH 端口未就绪（默认配置没恢复成功？）"
 if command -v sshpass >/dev/null 2>&1; then
   OUTPUT="$(try_login)" || fail '绑定挂载空 /etc/ssh 后无法登录'
   grep -qx 'root' <<<"$OUTPUT" || fail '绑定挂载场景登录用户不是 root'
-  log '空 /etc/ssh 能自动补齐并登录'
+  log '空 /etc/ssh 能自动生成配置并登录'
 fi
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 CONTAINER=""
-rm -rf "$EMPTY_SSH"
-EMPTY_SSH=""
 
 log '全部通过 ✅'
