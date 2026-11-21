@@ -38,7 +38,7 @@ docker run -d --name dsh \
 | `./ssh` | `/etc/ssh` | 主机密钥 + sshd 配置；挂上后重建容器指纹不变 |
 | `./workspaces` | `/workspace` | 工作区，Web UI 里把 `/workspace` 添加为工作区 |
 
-`/etc/ssh` 首次挂载为空时会自动用镜像内置的默认配置补齐（`sshd_config`、`moduli` 等），不需要手动准备。
+`/etc/ssh` 首次挂载为空时会自动生成 `sshd_config` 和主机密钥，不需要手动准备；之后配置就固定下来了。
 
 ## 环境变量
 

@@ -7,7 +7,7 @@
 #
 # 三个目录都会自动创建，首次启动时：
 #   ./dsh-data  —— 空的，DSH 会初始化会话/配置
-#   ./ssh       —— 空的，会用镜像内置的默认 sshd 配置补齐，并生成主机密钥（之后就固定了）
+#   ./ssh       —— 空的，首次启动会生成 sshd_config 与主机密钥（之后就固定了）
 #   ./workspaces—— 空的，在 Web UI 里把 /workspace 添加为工作区即可使用
 services:
   dsh:

@@ -150,16 +150,35 @@ start_ssh() {
   mkdir -p /run/sshd
   chmod 0755 /run/sshd 2>/dev/null || true
 
-  # 绑定挂载 ./ssh:/etc/ssh 时，空宿主目录会盖掉镜像里的 /etc/ssh，
-  # 用构建期备份的默认配置补齐，否则 sshd 会因缺少 sshd_config/moduli 起不来。
+  # 绑定挂载 ./ssh:/etc/ssh 时，宿主空目录会盖掉镜像里的 /etc/ssh。
+  # 这里不恢复旧配置，直接生成一份最小可用的 sshd_config；moduli 是数据文件，
+  # 重新生成要好几分钟，所以只从构建期备份里补这一个文件。
   if [ ! -f /etc/ssh/sshd_config ]; then
-    if [ -d /usr/share/dsh-ssh/defaults ]; then
-      log '/etc/ssh 缺少配置（常见于首次绑定挂载），从镜像默认值恢复'
-      cp -a /usr/share/dsh-ssh/defaults/. /etc/ssh/ \
-        || die '从 /usr/share/dsh-ssh/defaults 恢复 /etc/ssh 失败'
-    else
-      die '/etc/ssh 缺少 sshd_config，且镜像内没有默认配置备份'
-    fi
+    log '/etc/ssh 没有 sshd_config（常见于首次绑定挂载），生成一份默认配置'
+    {
+      printf '# 由 dsh 入口脚本生成（/etc/ssh 为空时重建）\n'
+      printf 'Include /etc/ssh/sshd_config.d/*.conf\n'
+      printf 'HostKey /etc/ssh/ssh_host_ed25519_key\n'
+      printf 'HostKey /etc/ssh/ssh_host_ecdsa_key\n'
+      printf 'HostKey /etc/ssh/ssh_host_rsa_key\n'
+      printf 'PermitRootLogin yes\n'
+      printf 'PubkeyAuthentication yes\n'
+      printf 'PasswordAuthentication yes\n'
+      printf 'KbdInteractiveAuthentication no\n'
+      printf 'UsePAM no\n'
+      printf 'X11Forwarding yes\n'
+      printf 'ClientAliveInterval 60\n'
+      printf 'ClientAliveCountMax 3\n'
+      printf 'MaxStartups 100:30:200\n'
+      if [ -s /etc/dsh-sftp-server ]; then
+        printf 'Subsystem sftp %s\n' "$(cat /etc/dsh-sftp-server)"
+      fi
+    } > /etc/ssh/sshd_config
+    chmod 0644 /etc/ssh/sshd_config
+  fi
+  if [ ! -f /etc/ssh/moduli ] && [ -f /usr/share/dsh-ssh/moduli ]; then
+    log '补充 /etc/ssh/moduli'
+    cp /usr/share/dsh-ssh/moduli /etc/ssh/moduli
   fi
 
   # 主配置若缺少 Include，运行期补一次（防止用户挂载了自定义 sshd_config）

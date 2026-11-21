@@ -39,7 +39,7 @@ Compose example: [`examples/docker-compose.yml`](examples/docker-compose.yml).
 | `./ssh` | `/etc/ssh` | host keys + sshd config; keeps the fingerprint stable across recreations |
 | `./workspaces` | `/workspace` | workspace; add `/workspace` as a workspace in the Web UI |
 
-An empty `/etc/ssh` bind mount is auto-populated from the image defaults on first start.
+An empty `/etc/ssh` bind mount gets a generated `sshd_config` and fresh host keys on first start.
 
 ## Environment variables
 
