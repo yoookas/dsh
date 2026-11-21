@@ -37,7 +37,7 @@ Compose example: [`examples/docker-compose.yml`](examples/docker-compose.yml).
 | --- | --- | --- |
 | `./dsh-data` | `/root/.dsh` | sessions / config (upstream convention) |
 | `./ssh` | `/etc/ssh` | host keys + sshd config; keeps the fingerprint stable across recreations |
-| `./workspaces` | `/workspace` | workspace; add `/workspace` as a workspace in the Web UI |
+| `./workspaces` | `/root/workspaces` | workspace; add `/root/workspaces` in the Web UI |
 
 An empty `/etc/ssh` bind mount gets a generated `sshd_config` and fresh host keys on first start.
 

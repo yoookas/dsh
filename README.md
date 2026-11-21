@@ -36,7 +36,7 @@ docker run -d --name dsh \
 | --- | --- | --- |
 | `./dsh-data` | `/root/.dsh` | 会话 / 配置（上游约定） |
 | `./ssh` | `/etc/ssh` | 主机密钥 + sshd 配置；挂上后重建容器指纹不变 |
-| `./workspaces` | `/workspace` | 工作区，Web UI 里把 `/workspace` 添加为工作区 |
+| `./workspaces` | `/root/workspaces` | 工作区，Web UI 里把 `/root/workspaces` 添加为工作区 |
 
 `/etc/ssh` 首次挂载为空时会自动生成 `sshd_config` 和主机密钥，不需要手动准备；之后配置就固定下来了。
 
